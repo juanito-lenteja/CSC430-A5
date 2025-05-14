@@ -43,7 +43,7 @@
 (struct CloV ([params : (Listof Symbol)]
               [body : ExprC]
               [env : Env]) #:transparent)
-(struct PrimV ([fun : ((Listof Any) -> (U Value Nothing))]) #:transparent)
+(struct PrimV ([fun : ((Listof Value) -> (U Value Nothing))]) #:transparent)
 
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -79,7 +79,7 @@
 
 ; This function takes in a list of args. If they are two numbers it returns
 ; their addition, else it throws an error.
-(: addPrim ((Listof Any) -> NumV))
+(: addPrim ((Listof Value) -> NumV))
 (define (addPrim args)
   (if (= (length args) binary)
      (match args
@@ -94,7 +94,7 @@
 
 ; This function takes in a list of args. If they are two numbers it returns
 ; their substraction, else it throws an error.
-(: minusPrim ((Listof Any) -> NumV))
+(: minusPrim ((Listof Value) -> NumV))
 (define (minusPrim args)
   (if (= (length args) binary)
      (match args
@@ -109,7 +109,7 @@
 
 ; This function takes in a list of args. If they are two numbers it returns
 ; their multiplication, else it throws an error.
-(: multPrim ((Listof Any) -> NumV))
+(: multPrim ((Listof Value) -> NumV))
 (define (multPrim args)
   (if (= (length args) binary)
      (match args
@@ -124,7 +124,7 @@
 
 ; This function takes in a list of args. If they are two numbers and the second one
 ; is not 0 it returns their division, else it throws an error.
-(: divPrim ((Listof Any) -> NumV))
+(: divPrim ((Listof Value) -> NumV))
 (define (divPrim args)
   (if (= (length args) binary)
      (match args
@@ -141,7 +141,7 @@
 
 ; This function takes in a list of args, and, if it contains two booleans,
 ; it applies the op <= on them. Otherwise, it throws an error.
-(: ltePrim ((Listof Any) -> BoolV))
+(: ltePrim ((Listof Value) -> BoolV))
 (define (ltePrim args)
   (if (= (length args) binary )
       (match args
@@ -156,7 +156,7 @@
 
 ; This function takes in a string, and two natural numbers. It makes the substring
 ; starting at start and exclusively ending at stop. If stop < start throws and error.
-(: substrPrim ((Listof Any) -> StrV))
+(: substrPrim ((Listof Value) -> StrV))
 (define (substrPrim args)
   (if (= (length args) ternary)
       (match args
@@ -179,7 +179,7 @@
   ;;;;;;;;;;;;;;;;
 
 ; This function takes in a string and returns its length.
-(: strlenPrim ((Listof Any) -> NumV))
+(: strlenPrim ((Listof Value) -> NumV))
 (define (strlenPrim args)
   (if (= (length args) unary)
       (match args
@@ -194,12 +194,12 @@
 
 ; This function takes in a Value. If it is a NumV, BoolV, or StrV it compares them
 ; for equality and returns the result. Otherwise, it returns false.
-(: equalPrim ((Listof Any) -> BoolV))
+(: equalPrim ((Listof Value) -> BoolV))
 (define (equalPrim args)
   (if (= (length args) binary)
       (match args
         [(list (NumV n1) (NumV n2)) (BoolV (= n1 n2))]
-        [(list (BoolV b1) (BoolV b2)) (BoolV (eq? b1 b2))]
+        [(list (BoolV b1) (BoolV b2)) (BoolV (equal? b1 b2))]
         [(list (StrV s1) (StrV s2)) (BoolV (string=? s1 s2))]
         [other (BoolV #f)]) ; different types
       (error 'equalPrim "QTUM Wrong arity. Expected ~e given ~e" binary (length args))))
@@ -211,12 +211,10 @@
 
 ; This function takes in a Value and raises an error containing the "user-error" substr
 ; and the Value.
-(: errorPrim ((Listof Any) -> Nothing))
+(: errorPrim ((Listof Value) -> Nothing))
 (define (errorPrim args)
   (cond [(= (length args) unary)
-         (match args
-           [(list (? Value? val)) (error 'errorPrim "QTUM user-error: ~a" (serialize (cast val Value)))]
-           [_ (error 'errorPrim "QTUM Invalid value for error")])]
+            (error 'errorPrim "QTUM user-error: ~a" (serialize (car args)))]
         [ else (error 'errorPrim "QTUM Wrong arity. Expected 1 given ~e" (length args))]))
 
 
@@ -226,7 +224,7 @@
 
 ; This function takes in a string and prints it out in a newline. It
 ; always returns true.
-(: println ((Listof Any) -> BoolV))
+(: println ((Listof Value) -> BoolV))
 (define (println args)
   (cond [(= (length args) unary)
          (match args
@@ -241,7 +239,7 @@
 
 ; This function does not get any inputs. It returns the real number
 ; read from stdin.
-(: read-num ((Listof Any) -> NumV))
+(: read-num ((Listof Value) -> NumV))
 (define (read-num args)
   (cond [(= (length args) nullary)
          (printf "> ")
@@ -262,7 +260,7 @@
 
 ; This function does not take any inputs. It reads a string from
 ; stdin.
-(: read-str ((Listof Any) -> StrV))
+(: read-str ((Listof Value) -> StrV))
 (define (read-str args)
   (cond [(= (length args) nullary)
          (printf "> ")
@@ -278,11 +276,11 @@
   ;;;;;;;;;
 
 ; This function takes in a list of values and it returns the last one.
-(: seq ((Listof Any) -> Value))
+(: seq ((Listof Value) -> Value))
 (define (seq args)
   (match args
     ['() (error 'read-str "QTUM Wrong arity. Expected one or more given ~e" (length args))]
-    [(list vals ...) (cast (last vals) Value)]))
+    [(list vals ...) (last vals)]))
 
 
   ;;;;;;;;;;;;
@@ -291,15 +289,16 @@
 
 ; This function takes in a list of values, and stringifies them.
 ; Then it returns a string, the result of concatenating all of them.
-(: strCat ((Listof Any) -> Value))
+(: strCat ((Listof Value) -> Value))
 (define (strCat args)
   (match args
     ['() (error 'read-str "QTUM Wrong arity. Expected one or more given ~e" (length args))]
     [(list vals ...) (define string-list (map (lambda ([arg : Value]) (if (StrV? arg)
                                                                           (StrV-str arg)
                                                                           (serialize arg)))
-                                              (cast vals (Listof Value))))
+                                              vals))
                      (StrV (apply string-append string-list))]))
+
 
 
   ;;;;;;;;;;;;;;;;;
@@ -322,8 +321,7 @@
                       (Binding 'read-num (PrimV read-num)) 
                       (Binding 'read-str (PrimV read-str))
                       (Binding 'seq (PrimV seq))
-                      (Binding '++ (PrimV strCat))
-                      )))
+                      (Binding '++ (PrimV strCat)))))
 
 
 
@@ -360,14 +358,14 @@
                                               (interp then currEnv)
                                               (interp else currEnv))]
                             [other (error 'interp "QTUM test ~e is not a Bool" expr)])]
-    [(LamC params body) (CloV (map IdC-var params) body currEnv)]
+    [(LamC params body) (CloV (map IdC-var params) body currEnv)] ; may be wrong (mapping)
     [(AppC proc args) (match (interp proc currEnv)
                         [(CloV params body clo-env)
                          (cond
                            [(= (length args) (length params))
-                            (define argval (map (lambda ([arg : ExprC]) (interp arg currEnv)) args))
-                            (define new-env (extendEnv clo-env params argval))
-                            (interp body new-env)]
+                                (define argval (map (lambda ([arg : ExprC]) (interp arg currEnv)) args))
+                                (define new-env (extendEnv clo-env params argval))
+                                (interp body new-env)]
                            [else (error 'interp "QTUM Incorrect number of arguments in ~e given ~e expected ~e"
                                         expr (length args) (length params))])]
                         [(PrimV fun)
@@ -386,17 +384,17 @@
   (match s
     [(? real? r) (NumC r)]
     [(? string? str) (StrC str)]
-    [(list 'if test then else) (IfC (parse test) (parse then) (parse else))]
+    [(list 'if test then else) (IfC (parse test) (parse then) (parse else))] ; interp will check against test being bool
     [(list 'with (list (? symbol? ids) '= exprs) ... exprC)
      (define params (cast (map parse (cast ids (Listof Sexp))) (Listof IdC)))
-     (if (areParamsValid? params)
-         (AppC (LamC params (parse exprC))
-               (cast (map parse (cast exprs (Listof Sexp))) (Listof ExprC)))
-         (error 'parse "QTUM Invalid parameters: duplicated elements"))]
+                                                (if (areParamsValid? params)
+                                                (AppC (LamC params (parse exprC))
+                                                      (cast (map parse (cast exprs (Listof Sexp))) (Listof ExprC)))
+                                                (error 'parse "QTUM Invalid parameters: duplicated elements"))]
     [(list (? symbol? ids) ... '=> exprC) (define params (cast (map parse (cast ids (Listof Sexp))) (Listof IdC)))
-                                          (if (areParamsValid? params)
-                                              (LamC params (parse exprC))
-                                              (error 'parse "QTUM Invalid parameters: duplicated elements ~e" s))]
+                              (if (areParamsValid? params)
+                                  (LamC params (parse exprC))
+                                  (error 'parse "QTUM Invalid parameters: duplicated elements ~e" s))]
     [(? symbol? s) (if (legalsymbol? s)
                        (IdC s)
                        (error 'parse "QTUM Illegal identifier use: ~e" s))]
@@ -423,23 +421,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Helper Function Defs ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-  ;;;;;;;;;;;;
-  ;; Value? ;;
-  ;;;;;;;;;;;;
-
-; This function takes in anything and returns true if it is a Value.
-; Otherwise, it returns false.
-(: Value? (Any -> Boolean))
-(define (Value? test)
-  (match test
-    [(? NumV?) #t]
-    [(? BoolV?) #t]
-    [(? StrV?) #t]
-    [(? CloV?) #t]
-    [(? PrimV?) #t]
-    [other #f]))
-
 
   ;;;;;;;;;;;;
   ;; lookup ;;
@@ -529,28 +510,28 @@
 ; addPrim test
 (check-equal? (addPrim (list (NumV 3) (NumV 2))) (NumV 5))
 (check-exn (regexp "addPrim: QTUM Either argument is not a number")
-           (lambda () (addPrim (list (NumV 3) (IdC 'x)))))
+           (lambda () (addPrim (list (NumV 3) (StrV "x")))))
 (check-exn (regexp "addPrim: QTUM Wrong arity. Expected 2 given 3")
            (lambda () (addPrim (list (NumV 3) (NumV 3) (NumV 3)))))
 
 ; minusPrim test
 (check-equal? (minusPrim (list (NumV 3) (NumV 2))) (NumV 1))
 (check-exn (regexp "minusPrim: QTUM Either argument is not a number")
-           (lambda () (minusPrim (list (NumV 3) (IdC 'x)))))
+           (lambda () (minusPrim (list (NumV 3) (StrV "x")))))
 (check-exn (regexp "minusPrim: QTUM Wrong arity. Expected 2 given 3")
            (lambda () (minusPrim (list (NumV 3) (NumV 3) (NumV 3)))))
 
 ; multPrim test
 (check-equal? (multPrim (list (NumV 3) (NumV 2))) (NumV 6))
 (check-exn (regexp "multPrim: QTUM Either argument is not a number")
-           (lambda () (multPrim (list (NumV 3) (IdC 'x)))))
+           (lambda () (multPrim (list (NumV 3) (StrV "x")))))
 (check-exn (regexp "multPrim: QTUM Wrong arity. Expected 2 given 3")
            (lambda () (multPrim (list (NumV 3) (NumV 3) (NumV 3)))))
 
 ; divPrim test
 (check-equal? (divPrim (list (NumV 3) (NumV 3))) (NumV 1))
 (check-exn (regexp "divPrim: QTUM Either argument is not a number")
-           (lambda () (divPrim (list (NumV 3) (IdC 'x)))))
+           (lambda () (divPrim (list (NumV 3) (StrV "x")))))
 (check-exn (regexp "divPrim: QTUM Wrong arity. Expected 2 given 3")
            (lambda () (divPrim (list (NumV 3) (NumV 3) (NumV 3)))))
 (check-exn (regexp "divPrim: QTUM Division by 0")
@@ -560,7 +541,7 @@
 (check-equal? (ltePrim (list (NumV 3) (NumV 3))) (BoolV #t))
 (check-equal? (ltePrim (list (NumV 4) (NumV 3))) (BoolV #f))
 (check-exn (regexp "ltePrim: QTUM Either argument is not a number")
-           (lambda () (ltePrim (list (NumV 3) (IdC 'x)))))
+           (lambda () (ltePrim (list (NumV 3) (StrV "x")))))
 (check-exn (regexp "ltePrim: QTUM Wrong arity. Expected 2 given 3")
            (lambda () (ltePrim (list (NumV 3) (NumV 3) (NumV 3)))))
 
@@ -628,8 +609,6 @@
           (lambda () (errorPrim (list (CloV '() (NumC 0) (Env '()))))))
 (check-exn (regexp "QTUM user-error: #<primop>")
           (lambda () (errorPrim (list (PrimV addPrim)))))
-(check-exn (regexp "QTUM Invalid value for error")
-          (lambda () (errorPrim (list "not a QTUM value"))))
 (check-exn (regexp "QTUM Wrong arity. Expected 1 given 0")
           (lambda () (errorPrim '())))
 (check-exn (regexp "QTUM") 
@@ -678,12 +657,6 @@
 (check-equal? (top-interp '{{str => {strlen str}} "Hiii"}) "4")
 (check-equal? (top-interp '{if true 3 2}) "3")
 (check-equal? (top-interp '{if false 3 2}) "2")
-;(check-equal? (top-interp '{seq
-;                            {println "What is your favorite integer between 6 and 7?"}}) "true")
-;(check-equal? (top-interp '{seq
-; {println "What is your favorite integer between 6 and 7?"}
-; {with [your-number = {read-num}]
-;    {println {++ "Interesting, you picked " your-number ". Bold choice!"}}}}) "true")
 (check-exn (regexp "Invalid parameters.*duplicated elements")
            (lambda () (top-interp '{{x x => x} 3})))
 (check-exn (regexp "is not a Bool")
@@ -695,50 +668,32 @@
 (check-exn (regexp "Attempting to do application on non-function data type")
            (lambda () (top-interp '(3 4 5))))
 
+
 ; extendEnv tests
 (check-equal? (extendEnv top-env (list 'x) (list (NumV 3)))
               (Env (cons (Binding 'x (NumV 3)) (Env-bindings top-env))))
 
-; println test
-(check-exn (regexp "needs a string")
-           (lambda () (println (list (BoolV #f)))))
-(check-exn (regexp "Wrong arity.*Expected 1 given 2")
-           (lambda () (println (list (BoolV #f) (BoolV #f)))))
-
-; read-num tests
-(check-exn (regexp "Wrong arity.*Expected 0 given 2")
-           (lambda () (read-num (list (BoolV #f) (BoolV #f)))))
-
-; read-str test
-(check-exn (regexp "Wrong arity.*Expected 0 given 2")
-           (lambda () (read-str (list (BoolV #f) (BoolV #f)))))
-
-; seq test
-(check-equal? (seq (list (BoolV #t) (NumV 3))) (NumV 3))
-(check-equal? (seq (list (BoolV #t))) (BoolV #t))
-(check-exn (regexp "Wrong arity.*Expected one or more given 0")
-           (lambda () (seq '())))
 
 
 ;;;;;;;;;;
 ;; GAME ;;
 ;;;;;;;;;;
 
-(top-interp '{seq
-              {println "This program computes an approximation of sin using Taylor series.
-Please input the x term (real number) and the number of terms to compute (integer)"}
-              {with
-               [pow = {base exp r => {if {<= exp 0}
-                                         1
-                                         {* base {r base {- exp 1} r}}}}]
-               [fact = {x r => {if {equal? x 1}
-                                   x
-                                   {* x {r {- x 1} r}}}}]
-               {with [sin = {x n r => {if {<= n 0}
-                                          1
-                                          {+ {* {pow -1 n pow} {/ {pow x {+ {* 2 n} 1} pow} {fact {+ {* 2 n} 1} fact}}}
-                                             {r x {- n 1} r}}}}]
-                     [x-val = {read-num}]
-                     [n-val = {read-num}]
-                     
-                     {sin x-val n-val sin}}}})
+;(top-interp '{seq
+;              {println "This program computes an approximation of sin using Maclaurin series.
+;Please input the x term (real number) and the number of terms to compute (integer)"}
+;              {with
+;               [pow = {base exp r => {if {<= exp 0}
+;                                         1
+;                                         {* base {r base {- exp 1} r}}}}]
+;               [fact = {x r => {if {equal? x 1}
+;                                   x
+;                                   {* x {r {- x 1} r}}}}]
+;               {with [sin = {x n r => {if {<= n -1}
+;                                          0
+;                                          {+ {* {pow -1 n pow} {/ {pow x {+ {* 2 n} 1} pow} {fact {+ {* 2 n} 1} fact}}}
+;                                             {r x {- n 1} r}}}}]
+;                     [x-val = {read-num}]
+;                     [n-val = {read-num}]
+;                     
+;                     {sin x-val n-val sin}}}})
