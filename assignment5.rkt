@@ -25,6 +25,7 @@
                       AppC))
 
 
+
   ;;;;;;;;;;;;;;;;;;;;;;
   ;; Environment Defs ;;
   ;;;;;;;;;;;;;;;;;;;;;;
@@ -114,7 +115,7 @@
   (if (= (length args) binary)
      (match args
        [(list (NumV num1) (NumV num2)) (NumV (* num1 num2))]
-       [other (error 'multPrim "QTUM Either argument is not a number")])
+       [(list arg1 arg2) (error 'multPrim "QTUM Either argument is not a number: (* ~e ~e)" arg1 arg2)])
      (error 'multPrim "QTUM Wrong arity. Expected ~e given ~e" binary (length args))))
 
 
@@ -298,7 +299,6 @@
                                                                           (serialize arg)))
                                               vals))
                      (StrV (apply string-append string-list))]))
-
 
 
   ;;;;;;;;;;;;;;;;;
@@ -675,25 +675,29 @@
 
 
 
-;;;;;;;;;;
-;; GAME ;;
-;;;;;;;;;;
+;;;;;;;;;;;;;;
+;; GAME DEF ;;
+;;;;;;;;;;;;;;
+(: example-program (-> String))
+(define (example-program)
+  (top-interp '{seq
+              {println "This program computes an approximation of sin using Maclaurin series.
+Please input the x term (real number) and the number of terms to compute (integer)"}
+              {with
+               [pow = {base exp r => {if {<= exp 0}
+                                         1
+                                         {* base {r base {- exp 1} r}}}}]
+               [fact = {x r => {if {equal? x 1}
+                                   x
+                                   {* x {r {- x 1} r}}}}]
+               {with [sin = {x n r => {if {<= n -1}
+                                          0
+                                          {+ {* {pow -1 n pow} {/ {pow x {+ {* 2 n} 1} pow} {fact {+ {* 2 n} 1} fact}}}
+                                             {r x {- n 1} r}}}}]
+                     [x-val = {read-num}]
+                     [n-val = {read-num}]
+                     
+                     {sin x-val n-val sin}}}}))
 
-;(top-interp '{seq
-;              {println "This program computes an approximation of sin using Maclaurin series.
-;Please input the x term (real number) and the number of terms to compute (integer)"}
-;              {with
-;               [pow = {base exp r => {if {<= exp 0}
-;                                         1
-;                                         {* base {r base {- exp 1} r}}}}]
-;               [fact = {x r => {if {equal? x 1}
-;                                   x
-;                                   {* x {r {- x 1} r}}}}]
-;               {with [sin = {x n r => {if {<= n -1}
-;                                          0
-;                                          {+ {* {pow -1 n pow} {/ {pow x {+ {* 2 n} 1} pow} {fact {+ {* 2 n} 1} fact}}}
-;                                             {r x {- n 1} r}}}}]
-;                     [x-val = {read-num}]
-;                     [n-val = {read-num}]
-;                     
-;                     {sin x-val n-val sin}}}})
+; Call to example program
+;(example-program)
